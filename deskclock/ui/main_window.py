@@ -3,56 +3,92 @@
 This module contains the primary application window which displays
 the clock interface in full-screen, frameless kiosk mode.
 
-All visual styling and UI configuration is contained within this module.
-No application or domain logic should be added here.
+The window integrates the DigitalClockWidget as its primary focal element,
+coordinated by a DigitalClockController that manages time updates. All time
+retrieval and formatting logic remains in the domain layer, with the window
+responsible only for UI concerns and component lifecycle management.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCloseEvent, QKeyEvent
-from PySide6.QtWidgets import QLabel, QMainWindow, QVBoxLayout, QWidget
+from PySide6.QtGui import QCloseEvent, QKeyEvent, QShowEvent
+from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
+
+from deskclock.ui.digital_clock_widget import DigitalClockWidget
+
+if TYPE_CHECKING:
+    from deskclock.app.clock_controller import DigitalClockController
+    from deskclock.domain.time_service import TimeServiceProtocol
 
 # Color constants for high-contrast kiosk display
 # These values are optimized for always-on displays and OLED screens
 _BACKGROUND_COLOR = "#000000"  # Pure black background
 _TEXT_COLOR = "#FFFFFF"  # White text for maximum contrast
 
-# Font configuration for desk-distance readability
-_PLACEHOLDER_FONT_SIZE = 24
-
 
 class MainWindow(QMainWindow):
     """Main application window for DeskClock.
 
     A full-screen, frameless window designed for kiosk-style display
-    on Raspberry Pi. Displays the clock interface with high-contrast
-    styling suitable for always-on use.
+    on Raspberry Pi. Displays a large digital clock as the primary
+    focal element with high-contrast styling suitable for always-on use.
 
     The window is configured with:
     - Frameless mode (no title bar or window borders)
     - Stay-on-top behavior for kiosk operation
     - Full-screen display on the primary monitor
     - Dark background with light text for readability
+    - Automatic clock updates managed by the controller
 
-    This class focuses purely on UI concerns. Application logic,
-    time services, and configuration are injected or accessed through
-    the application orchestration layer.
+    This class focuses purely on UI concerns and lifecycle management.
+    Time retrieval and formatting are handled by the injected time service
+    through the controller, maintaining clean architecture separation.
 
     Attributes:
-        placeholder_label: The central label widget that will be replaced
-            with the actual clock display in future implementations.
+        clock_widget: The digital clock widget displaying the current time.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        time_service: TimeServiceProtocol | None = None,
+        clock_widget: DigitalClockWidget | None = None,
+        show_seconds: bool = False,
+    ) -> None:
         """Initialize the main window.
 
         Configures the window for full-screen, frameless display
         with high-contrast styling suitable for always-on use.
-        Sets up the central widget with a placeholder label.
+        Sets up the digital clock as the primary focal element.
+
+        Args:
+            time_service: Optional time service for clock updates.
+                If not provided, a default TimeService is created.
+            clock_widget: Optional pre-configured clock widget.
+                If not provided, a default DigitalClockWidget is created.
+            show_seconds: Whether to display seconds in the time.
+                Only used when creating the default controller.
         """
         super().__init__()
+
+        self._show_seconds = show_seconds
+        self._controller: DigitalClockController | None = None
+
+        # Create or use provided clock widget
+        self._clock_widget = clock_widget or DigitalClockWidget(
+            show_seconds=show_seconds
+        )
+
+        # Store or create time service for controller setup
+        self._time_service = time_service
+
         self._configure_window()
         self._setup_ui()
         self._apply_styling()
+        self._setup_controller()
 
     def _configure_window(self) -> None:
         """Configure window properties for kiosk-style display.
@@ -77,7 +113,7 @@ class MainWindow(QMainWindow):
         """Set up the central widget and layout structure.
 
         Creates a central widget with a vertical layout containing
-        a placeholder label that is centered both horizontally and
+        the digital clock widget centered both horizontally and
         vertically within the window.
         """
         # Create central widget container
@@ -88,23 +124,21 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Create placeholder label for future clock display
-        self.placeholder_label = QLabel("DeskClock - Time will be displayed here")
-        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Add label to layout with vertical centering
-        # Using stretch items to center the label vertically
+        # Add clock widget to layout with vertical centering
+        # Using stretch items to center the clock vertically
         layout.addStretch(1)
-        layout.addWidget(self.placeholder_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(
+            self._clock_widget, alignment=Qt.AlignmentFlag.AlignCenter
+        )
         layout.addStretch(1)
 
     def _apply_styling(self) -> None:
         """Apply high-contrast visual styling for kiosk display.
 
-        Uses Qt stylesheets to configure colors and fonts optimized
-        for always-on display at desk viewing distance. The dark
-        background with light text provides high contrast and is
-        suitable for both LCD and OLED displays.
+        Uses Qt stylesheets to configure colors optimized for always-on
+        display at desk viewing distance. The dark background with light
+        text provides high contrast and is suitable for both LCD and
+        OLED displays.
         """
         self.setStyleSheet(f"""
             QMainWindow {{
@@ -114,12 +148,49 @@ class MainWindow(QMainWindow):
                 background-color: {_BACKGROUND_COLOR};
                 color: {_TEXT_COLOR};
             }}
-            QLabel {{
-                color: {_TEXT_COLOR};
-                font-size: {_PLACEHOLDER_FONT_SIZE}px;
-                background-color: transparent;
-            }}
         """)
+
+    def _setup_controller(self) -> None:
+        """Set up the clock controller for automatic time updates.
+
+        Creates the controller that coordinates between the time service
+        and the clock widget. The controller is not started here - it
+        will be started when the window is shown.
+        """
+        # Import here to avoid circular imports
+        from deskclock.app.clock_controller import DigitalClockController
+        from deskclock.domain.time_service import TimeService
+
+        # Use provided time service or create default
+        time_service = self._time_service or TimeService()
+
+        self._controller = DigitalClockController(
+            time_service,
+            self._clock_widget,
+            show_seconds=self._show_seconds,
+        )
+
+    @property
+    def clock_widget(self) -> DigitalClockWidget:
+        """Get the digital clock widget.
+
+        Returns:
+            The clock widget displaying the current time.
+        """
+        return self._clock_widget
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Handle window show events to start clock updates.
+
+        Starts the clock controller when the window becomes visible,
+        ensuring the display shows the current time immediately.
+
+        Args:
+            event: The show event.
+        """
+        super().showEvent(event)
+        if self._controller is not None:
+            self._controller.start()
 
     def showFullScreen(self) -> None:
         """Show the window in full-screen mode.
@@ -155,16 +226,16 @@ class MainWindow(QMainWindow):
 
         This method is called when the window is about to close, regardless
         of how the close was initiated (ESC key, Alt+F4, window manager,
-        or programmatic close). It ensures the application terminates
-        cleanly without zombie processes or uncaught exceptions.
-
-        The close event acceptance causes the window to close, which in turn
-        causes the Qt event loop to exit (since this is the only window),
-        leading to clean process termination.
+        or programmatic close). It ensures the clock controller is stopped
+        and the application terminates cleanly.
 
         Args:
             event: The close event to handle.
         """
+        # Stop the clock controller to clean up the timer
+        if self._controller is not None:
+            self._controller.stop()
+
         # Accept the close event to allow the window to close
         # When the last window closes, the Qt event loop will exit
         # and the application will terminate cleanly
