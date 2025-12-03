@@ -109,6 +109,10 @@ class MainWindow(QMainWindow):
         # This ensures the window occupies the entire primary display
         self.setWindowState(Qt.WindowState.WindowFullScreen)
 
+        # Set minimum size as safety measure for windowed testing
+        # Accommodates the smallest common Raspberry Pi display (800x480)
+        self.setMinimumSize(800, 480)
+
     def _setup_ui(self) -> None:
         """Set up the central widget and layout structure.
 

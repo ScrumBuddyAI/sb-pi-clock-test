@@ -7,33 +7,48 @@ on 21-27" monitors.
 The widget is designed for smooth updates without flicker by providing
 a simple text update method that doesn't recreate widgets or layouts.
 Time formatting logic is handled externally by the domain layer.
+
+Font Size Guidelines for Different Resolutions:
+    - 1920x1080 (Full HD): 180-220px (default 200px)
+    - 1280x720 (HD): 120-160px
+    - 1024x768 (XGA): 100-130px
+    - 800x480 (RPi 7" display): 70-90px
+
+These sizes are optimized for desk-distance viewing (60-80 cm) and
+ensure the time dominates the display as the primary focal element.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-# Default font size optimized for desk-distance viewing (60-80 cm)
-# on 21-27" monitors. This size ensures the time is clearly legible
-# as the dominant element on screen.
+# Default font size optimized for Full HD (1920x1080) displays at
+# desk-distance viewing (60-80 cm). For other resolutions, pass a
+# custom font_size to the widget constructor.
 _DEFAULT_FONT_SIZE = 200
 
 # Font family preference list for digital clock display.
 # Prioritizes fonts with clear, legible digits and good rendering
 # across different platforms. Falls back to system sans-serif.
+# On Raspberry Pi, DejaVu Sans and Noto Sans are commonly available.
 _FONT_FAMILIES = [
     "Roboto",  # Clean, modern, excellent digit rendering
     "SF Pro Display",  # macOS system font
     "Segoe UI",  # Windows system font
-    "DejaVu Sans",  # Linux fallback with good coverage
+    "DejaVu Sans",  # Linux/RPi default with good coverage
     "Noto Sans",  # Cross-platform fallback
+    "Liberation Sans",  # Linux fallback
     "sans-serif",  # Ultimate fallback
 ]
 
 # Color constants matching the main window styling
 _TEXT_COLOR = "#FFFFFF"
+
+# Letter spacing as a percentage of font size for improved digit separation
+# Helps prevent digits from appearing cramped at large sizes
+_LETTER_SPACING_PERCENT = 2
 
 
 class DigitalClockWidget(QWidget):
@@ -104,14 +119,25 @@ class DigitalClockWidget(QWidget):
         self._time_label = QLabel()
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        # Set size policy to allow the label to expand and fill available space
+        # while maintaining its centered position
+        self._time_label.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+        )
+
         # Center the label in the layout
         layout.addWidget(self._time_label, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Set minimum size to prevent layout collapse
+        # Based on approximate dimensions for "00:00" at default font size
+        self.setMinimumSize(self._font_size * 3, self._font_size)
 
     def _configure_font(self) -> None:
         """Configure the font for optimal time display.
 
-        Sets up a large sans-serif font with good digit rendering.
-        The font family list provides cross-platform fallbacks.
+        Sets up a large sans-serif font with good digit rendering,
+        optimized for legibility on Raspberry Pi displays and smooth
+        updates without visible jank.
         """
         font = QFont()
 
@@ -122,12 +148,24 @@ class DigitalClockWidget(QWidget):
         # Set size for desk-distance visibility
         font.setPixelSize(self._font_size)
 
-        # Use normal weight for clean rendering at large sizes
-        font.setWeight(QFont.Weight.Normal)
+        # Use medium weight for improved visibility at desk distance
+        # Slightly bolder than normal for better legibility on varied displays
+        font.setWeight(QFont.Weight.Medium)
 
         # Disable kerning for consistent digit spacing
         # This prevents visual "jumping" when digits change
         font.setKerning(False)
+
+        # Enable antialiasing for smoother font rendering
+        # Important for good appearance on Raspberry Pi GPU
+        font.setStyleStrategy(
+            QFont.StyleStrategy.PreferAntialias
+            | QFont.StyleStrategy.PreferQuality
+        )
+
+        # Set letter spacing for improved digit separation at large sizes
+        letter_spacing = self._font_size * _LETTER_SPACING_PERCENT / 100
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, letter_spacing)
 
         self._time_label.setFont(font)
 
