@@ -8,6 +8,7 @@ No application or domain logic should be added here.
 """
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent, QKeyEvent
 from PySide6.QtWidgets import QLabel, QMainWindow, QVBoxLayout, QWidget
 
 # Color constants for high-contrast kiosk display
@@ -129,3 +130,42 @@ class MainWindow(QMainWindow):
         # Ensure window state is set before showing
         self.setWindowState(Qt.WindowState.WindowFullScreen)
         super().showFullScreen()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Handle key press events for application control.
+
+        Provides keyboard shortcuts for kiosk operation. In a frameless
+        full-screen window, the ESC key is the primary method for users
+        to exit the application.
+
+        Supported keys:
+        - ESC: Close the application and exit cleanly
+
+        Args:
+            event: The key press event containing the key that was pressed.
+        """
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+        else:
+            # Pass unhandled keys to the base implementation
+            super().keyPressEvent(event)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Handle window close events for clean application shutdown.
+
+        This method is called when the window is about to close, regardless
+        of how the close was initiated (ESC key, Alt+F4, window manager,
+        or programmatic close). It ensures the application terminates
+        cleanly without zombie processes or uncaught exceptions.
+
+        The close event acceptance causes the window to close, which in turn
+        causes the Qt event loop to exit (since this is the only window),
+        leading to clean process termination.
+
+        Args:
+            event: The close event to handle.
+        """
+        # Accept the close event to allow the window to close
+        # When the last window closes, the Qt event loop will exit
+        # and the application will terminate cleanly
+        event.accept()
