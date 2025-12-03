@@ -5,6 +5,7 @@ event handling. Domain logic and application orchestration are kept
 separate from this layer.
 """
 
+from deskclock.ui.digital_clock_widget import DigitalClockWidget
 from deskclock.ui.main_window import MainWindow
 
-__all__ = ["MainWindow"]
+__all__ = ["DigitalClockWidget", "MainWindow"]
