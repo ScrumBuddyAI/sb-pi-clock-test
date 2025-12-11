@@ -10,6 +10,7 @@ The page provides:
 - Per-row actions (edit, toggle status)
 - Invite new user action
 - Role and status display using chips
+- Integrated dialogs for user management flows
 """
 
 from datetime import datetime
@@ -26,7 +27,7 @@ from PySide6.QtWidgets import (
 
 from deskclock.domain.user import User
 from deskclock.domain.enums import UserRole, UserStatus
-from deskclock.services.user_service import UserService
+from deskclock.services.user_service import UserService, UserServiceResult
 from deskclock.ui.brunelly import (
     BrunellyPageLayout,
     BrunellyTable,
@@ -39,6 +40,12 @@ from deskclock.ui.brunelly import (
     TableDataRole,
 )
 from deskclock.ui.brunelly.theme import ColorPalette, Spacing, TypographyScale
+from deskclock.ui.pages.user_dialogs import (
+    InviteUserDialog,
+    EditUserDialog,
+    ChangeRoleDialog,
+    ToggleStatusDialog,
+)
 
 
 class UsersTableModel(BrunellyTableModel):
@@ -424,8 +431,24 @@ class UsersPage(QWidget):
 
     @Slot()
     def _on_invite_clicked(self) -> None:
-        """Handle invite button click."""
-        self.user_invited.emit()
+        """Handle invite button click.
+
+        Opens the invite user dialog and handles the result.
+        """
+        dialog = InviteUserDialog(self._service, parent=self)
+        dialog.user_invited.connect(self._on_user_invited)
+        dialog.exec()
+
+    def _on_user_invited(self, result: UserServiceResult) -> None:
+        """Handle successful user invitation.
+
+        Args:
+            result: Service result containing the new user.
+        """
+        if result.success and result.user:
+            self.show_success(f"Invitation sent to {result.user.email}")
+            self.refresh()
+            self.user_invited.emit()
 
     @Slot(str)
     def _on_search_changed(self, query: str) -> None:
@@ -452,12 +475,35 @@ class UsersPage(QWidget):
     def _on_row_double_clicked(self, row: int) -> None:
         """Handle row double-click.
 
+        Opens the edit user dialog.
+
         Args:
             row: Double-clicked row index.
         """
         user = self._table_model.get_row_data(row)
         if user:
-            self.user_edit_requested.emit(user)
+            self._show_edit_dialog(user)
+
+    def _show_edit_dialog(self, user: User) -> None:
+        """Show the edit user dialog.
+
+        Args:
+            user: User to edit.
+        """
+        dialog = EditUserDialog(user, self._service, parent=self)
+        dialog.user_updated.connect(self._on_user_updated)
+        dialog.exec()
+        self.user_edit_requested.emit(user)
+
+    def _on_user_updated(self, result: UserServiceResult) -> None:
+        """Handle successful user update.
+
+        Args:
+            result: Service result containing the updated user.
+        """
+        if result.success and result.user:
+            self.show_success(f"User {result.user.name} updated successfully")
+            self.refresh()
 
     @Slot()
     def _show_context_menu(self, position) -> None:
@@ -493,7 +539,7 @@ class UsersPage(QWidget):
 
         # Edit action
         edit_action = menu.addAction("Edit User")
-        edit_action.triggered.connect(lambda: self.user_edit_requested.emit(user))
+        edit_action.triggered.connect(lambda: self._show_edit_dialog(user))
 
         menu.addSeparator()
 
@@ -521,20 +567,59 @@ class UsersPage(QWidget):
     def _on_role_action(self, user: User, new_role: UserRole) -> None:
         """Handle role change action.
 
+        Shows the change role dialog for confirmation.
+
         Args:
             user: The user to update.
             new_role: The new role to assign.
         """
-        if user.role != new_role:
-            self.user_role_changed.emit(user, new_role)
+        if user.role == new_role:
+            return
+
+        dialog = ChangeRoleDialog(user, new_role, self._service, parent=self)
+        dialog.role_changed.connect(self._on_role_changed)
+        dialog.exec()
+
+    def _on_role_changed(self, result: UserServiceResult) -> None:
+        """Handle successful role change.
+
+        Args:
+            result: Service result containing the updated user.
+        """
+        if result.success and result.user:
+            self.show_success(
+                f"{result.user.name}'s role changed to {result.user.role.display_name}"
+            )
+            self.refresh()
+            self.user_role_changed.emit(result.user, result.user.role)
 
     def _on_toggle_status(self, user: User) -> None:
         """Handle status toggle action.
 
+        Shows the toggle status dialog for confirmation.
+
         Args:
             user: The user to toggle status for.
         """
-        self.user_status_toggled.emit(user)
+        dialog = ToggleStatusDialog(user, self._service, parent=self)
+        dialog.status_changed.connect(self._on_status_changed)
+        dialog.exec()
+
+    def _on_status_changed(self, result: UserServiceResult) -> None:
+        """Handle successful status change.
+
+        Args:
+            result: Service result containing the updated user.
+        """
+        if result.success and result.user:
+            action = (
+                "activated"
+                if result.user.status == UserStatus.ACTIVE
+                else "deactivated"
+            )
+            self.show_success(f"{result.user.name} has been {action}")
+            self.refresh()
+            self.user_status_toggled.emit(result.user)
 
     # Public methods for external control
 
