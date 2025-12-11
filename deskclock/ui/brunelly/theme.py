@@ -94,8 +94,9 @@ class StatusColor(Enum):
 class RoleColor(Enum):
     """Colors for user role indicators."""
 
-    ADMIN = ("#FEF2F2", "#DC2626", "#EF4444")  # bg, text, border
-    USER = ("#EFF6FF", "#2563EB", "#3B82F6")
+    # Purple for admin - signifies elevated privileges without confusion with error states
+    ADMIN = ("#F5F3FF", "#7C3AED", "#8B5CF6")  # bg, text, border (violet)
+    USER = ("#EFF6FF", "#2563EB", "#3B82F6")  # bg, text, border (blue)
 
 
 @dataclass(frozen=True)

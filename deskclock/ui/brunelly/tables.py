@@ -279,11 +279,15 @@ class BrunellyTableDelegate(QStyledItemDelegate):
             index: Model index.
             chip_type: Type of chip ("role" or "status").
         """
-        # Draw background for selection/hover states
+        # Draw background for selection/hover/focus states
         # Note: state and rect are inherited from QStyleOption but not in PySide6 stubs
-        if option.state & QStyle.StateFlag.State_Selected:  # type: ignore[attr-defined]
+        has_focus = bool(option.state & QStyle.StateFlag.State_HasFocus)  # type: ignore[attr-defined]
+        is_selected = bool(option.state & QStyle.StateFlag.State_Selected)  # type: ignore[attr-defined]
+        is_hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)  # type: ignore[attr-defined]
+
+        if is_selected:
             painter.fillRect(option.rect, QColor(ColorPalette.PRIMARY_50))  # type: ignore[attr-defined]
-        elif option.state & QStyle.StateFlag.State_MouseOver:  # type: ignore[attr-defined]
+        elif is_hovered:
             painter.fillRect(option.rect, QColor(ColorPalette.NEUTRAL_50))  # type: ignore[attr-defined]
 
         # Get chip value and display text
@@ -336,6 +340,19 @@ class BrunellyTableDelegate(QStyledItemDelegate):
         text_x = chip_x + chip_padding_h
         text_y = chip_y + chip_padding_v + painter.fontMetrics().ascent()
         painter.drawText(int(text_x), int(text_y), display_text)
+
+        # Draw focus ring for keyboard accessibility
+        if has_focus:
+            focus_pen = QPen(QColor(ColorPalette.PRIMARY_500), 2)
+            focus_pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.setPen(focus_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            # Draw focus ring slightly outside the chip
+            painter.drawRoundedRect(
+                chip_x - 2, chip_y - 2,
+                chip_width + 4, chip_height + 4,
+                BorderRadius.SM + 2, BorderRadius.SM + 2
+            )
 
         painter.restore()
 
