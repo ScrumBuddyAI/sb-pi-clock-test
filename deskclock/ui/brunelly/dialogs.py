@@ -91,10 +91,7 @@ class BrunellyDialog(QDialog):
         self.setFixedWidth(self._size.value)
 
         # Remove default window frame for custom styling
-        self.setWindowFlags(
-            Qt.WindowType.Dialog
-            | Qt.WindowType.FramelessWindowHint
-        )
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
     def _setup_ui(self) -> None:
@@ -303,9 +300,7 @@ class BrunellyConfirmDialog(BrunellyDialog):
         super().__init__(title=title, size=DialogSize.SMALL, parent=parent)
         self._message = message
 
-        self._setup_confirmation_ui(
-            message, confirm_text, cancel_text, confirm_variant
-        )
+        self._setup_confirmation_ui(message, confirm_text, cancel_text, confirm_variant)
 
     def _setup_confirmation_ui(
         self,

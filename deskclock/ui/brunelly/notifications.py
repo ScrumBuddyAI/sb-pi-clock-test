@@ -192,7 +192,7 @@ class BrunellyBanner(QFrame):
         icons = {
             BannerVariant.INFO: "\u2139",  # i in circle
             BannerVariant.SUCCESS: "\u2713",  # checkmark
-            BannerVariant.WARNING: "\u26A0",  # warning triangle
+            BannerVariant.WARNING: "\u26a0",  # warning triangle
             BannerVariant.ERROR: "\u2717",  # X mark
         }
         return icons.get(self._variant, "\u2139")
@@ -303,7 +303,7 @@ class BrunellyInlineError(QWidget):
         layout.setSpacing(Spacing.XS)
 
         # Error icon
-        self._icon = QLabel("\u26A0")  # Warning triangle
+        self._icon = QLabel("\u26a0")  # Warning triangle
         self._icon.setObjectName("errorIcon")
         layout.addWidget(self._icon)
 

@@ -51,6 +51,7 @@ class TableDataRole:
     # Role for the raw value (e.g., "admin", "active") for chip coloring
     ChipValueRole = Qt.ItemDataRole.UserRole + 2
 
+
 # Type alias for Qt model index types
 ModelIndex = Union[QModelIndex, QPersistentModelIndex]
 
@@ -82,7 +83,9 @@ class TableColumn:
     width: Optional[int] = None
     min_width: int = 80
     sortable: bool = True
-    alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    alignment: Qt.AlignmentFlag = (
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    )
     renderer: Optional[Callable[[Any], QWidget]] = None
 
 
@@ -215,7 +218,10 @@ class BrunellyTableModel(QAbstractTableModel):
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
         """Return header data (Qt interface)."""
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+        if (
+            orientation == Qt.Orientation.Horizontal
+            and role == Qt.ItemDataRole.DisplayRole
+        ):
             columns = self.columns()
             if section < len(columns):
                 return columns[section].header
@@ -299,9 +305,13 @@ class BrunellyTableDelegate(QStyledItemDelegate):
 
         # Get colors based on chip type
         if chip_type == "role":
-            bg_color, text_color, border_color = BrunellyTheme.get_role_colors(chip_value)
+            bg_color, text_color, border_color = BrunellyTheme.get_role_colors(
+                chip_value
+            )
         else:
-            bg_color, text_color, border_color = BrunellyTheme.get_status_colors(chip_value)
+            bg_color, text_color, border_color = BrunellyTheme.get_status_colors(
+                chip_value
+            )
 
         # Calculate chip dimensions
         font = QFont()
@@ -331,8 +341,7 @@ class BrunellyTableDelegate(QStyledItemDelegate):
         painter.setBrush(QBrush(QColor(bg_color)))
         painter.setPen(QPen(QColor(border_color), 1))
         painter.drawRoundedRect(
-            chip_x, chip_y, chip_width, chip_height,
-            BorderRadius.SM, BorderRadius.SM
+            chip_x, chip_y, chip_width, chip_height, BorderRadius.SM, BorderRadius.SM
         )
 
         # Text
@@ -349,9 +358,12 @@ class BrunellyTableDelegate(QStyledItemDelegate):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             # Draw focus ring slightly outside the chip
             painter.drawRoundedRect(
-                chip_x - 2, chip_y - 2,
-                chip_width + 4, chip_height + 4,
-                BorderRadius.SM + 2, BorderRadius.SM + 2
+                chip_x - 2,
+                chip_y - 2,
+                chip_width + 4,
+                chip_height + 4,
+                BorderRadius.SM + 2,
+                BorderRadius.SM + 2,
             )
 
         painter.restore()
@@ -370,11 +382,21 @@ class BrunellyTableDelegate(QStyledItemDelegate):
             font = QFont()
             font.setPixelSize(TypographyScale.CHIP.font_size)
             from PySide6.QtGui import QFontMetrics
+
             fm = QFontMetrics(font)
             text_width = fm.horizontalAdvance(display_text)
-            chip_width = text_width + (Spacing.CHIP_PADDING_H * 2) + (Spacing.TABLE_CELL_PADDING_H * 2)
-            chip_height = TypographyScale.CHIP.font_size + (Spacing.CHIP_PADDING_V * 2) + Spacing.TABLE_CELL_PADDING_V * 2
+            chip_width = (
+                text_width
+                + (Spacing.CHIP_PADDING_H * 2)
+                + (Spacing.TABLE_CELL_PADDING_H * 2)
+            )
+            chip_height = (
+                TypographyScale.CHIP.font_size
+                + (Spacing.CHIP_PADDING_V * 2)
+                + Spacing.TABLE_CELL_PADDING_V * 2
+            )
             from PySide6.QtCore import QSize
+
             return QSize(int(chip_width), int(chip_height))
 
         return super().sizeHint(option, index)

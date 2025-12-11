@@ -196,10 +196,7 @@ class UserRepository:
         query_lower = query.lower()
         results = []
         for user in self._users.values():
-            if (
-                query_lower in user.name.lower()
-                or query_lower in user.email.lower()
-            ):
+            if query_lower in user.name.lower() or query_lower in user.email.lower():
                 results.append(user)
 
         return sorted(results, key=lambda u: u.created_at, reverse=True)
@@ -243,7 +240,10 @@ class UserRepository:
         Returns:
             Number of active admins.
         """
-        return len([
-            u for u in self._users.values()
-            if u.role == UserRole.ADMIN and u.status == UserStatus.ACTIVE
-        ])
+        return len(
+            [
+                u
+                for u in self._users.values()
+                if u.role == UserRole.ADMIN and u.status == UserStatus.ACTIVE
+            ]
+        )

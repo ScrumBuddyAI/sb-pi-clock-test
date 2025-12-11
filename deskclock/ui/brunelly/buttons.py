@@ -284,7 +284,11 @@ class BrunellyIconButton(QPushButton):
 
         # Icon size is slightly smaller than button
         icon_size = int(size * 0.6)
-        self.setIconSize(self.iconSize().scaled(icon_size, icon_size, Qt.AspectRatioMode.KeepAspectRatio))
+        self.setIconSize(
+            self.iconSize().scaled(
+                icon_size, icon_size, Qt.AspectRatioMode.KeepAspectRatio
+            )
+        )
 
         self._apply_styles()
         self._configure_accessibility(accessible_name or tooltip)

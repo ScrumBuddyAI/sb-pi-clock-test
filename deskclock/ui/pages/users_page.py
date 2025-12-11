@@ -105,11 +105,15 @@ class UsersTableModel(BrunellyTableModel):
         elif column_key == "created_at":
             return self._format_datetime(user.created_at)
         elif column_key == "last_login":
-            return self._format_datetime(user.last_login) if user.last_login else "Never"
+            return (
+                self._format_datetime(user.last_login) if user.last_login else "Never"
+            )
         return ""
 
     def data(
-        self, index: Union[QModelIndex, QPersistentModelIndex], role: int = Qt.ItemDataRole.DisplayRole
+        self,
+        index: Union[QModelIndex, QPersistentModelIndex],
+        role: int = Qt.ItemDataRole.DisplayRole,
     ) -> Any:
         """Return data for a cell with chip support.
 
@@ -325,7 +329,7 @@ class UsersPage(QWidget):
 
         # Empty state (hidden initially)
         self._empty_state = BrunellyEmptyState(
-            icon="\U0001F465",  # People emoji
+            icon="\U0001f465",  # People emoji
             title="No users yet",
             message="Get started by inviting your first team member.",
             action_text="Invite User",
@@ -336,7 +340,7 @@ class UsersPage(QWidget):
 
         # No results state (hidden initially)
         self._no_results_state = BrunellyEmptyState(
-            icon="\U0001F50D",  # Magnifying glass emoji
+            icon="\U0001f50d",  # Magnifying glass emoji
             title="No results found",
             message="Try adjusting your search terms.",
         )
