@@ -13,9 +13,9 @@ The page provides:
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -36,6 +36,7 @@ from deskclock.ui.brunelly import (
     BrunellyEmptyState,
     BannerVariant,
     TableColumn,
+    TableDataRole,
 )
 from deskclock.ui.brunelly.theme import ColorPalette, Spacing, TypographyScale
 
@@ -106,6 +107,64 @@ class UsersTableModel(BrunellyTableModel):
         elif column_key == "last_login":
             return self._format_datetime(user.last_login) if user.last_login else "Never"
         return ""
+
+    def data(
+        self, index: Union[QModelIndex, QPersistentModelIndex], role: int = Qt.ItemDataRole.DisplayRole
+    ) -> Any:
+        """Return data for a cell with chip support.
+
+        Extends the base implementation to provide chip type and value
+        data for role and status columns, enabling visual chip rendering.
+
+        Args:
+            index: Model index for the cell.
+            role: Data role being requested.
+
+        Returns:
+            Cell data for the requested role.
+        """
+        if not index.isValid():
+            return None
+
+        row = index.row()
+        col = index.column()
+
+        if row >= len(self._users):
+            return None
+
+        columns = self.columns()
+        if col >= len(columns):
+            return None
+
+        column = columns[col]
+        user = self._users[row]
+
+        # Handle chip type role - indicates this cell should render as a chip
+        if role == TableDataRole.ChipTypeRole:
+            if column.key == "role":
+                return "role"
+            elif column.key == "status":
+                return "status"
+            return None
+
+        # Handle chip value role - the raw enum value for coloring
+        if role == TableDataRole.ChipValueRole:
+            if column.key == "role":
+                return str(user.role.value)  # "admin" or "user"
+            elif column.key == "status":
+                return str(user.status.value)  # "active", "disabled", "pending"
+            return None
+
+        # Handle accessibility description
+        if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+            if column.key == "role":
+                return f"Role: {user.role.display_name}"
+            elif column.key == "status":
+                return f"Status: {user.status.display_name}"
+            return self.get_value(row, column.key)
+
+        # Delegate to base implementation for other roles
+        return super().data(index, role)
 
     def get_row_data(self, row: int) -> Optional[User]:
         """Get the User object for a row.

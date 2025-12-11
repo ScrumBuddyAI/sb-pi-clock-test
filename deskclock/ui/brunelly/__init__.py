@@ -35,6 +35,7 @@ from deskclock.ui.brunelly.tables import (
     BrunellyTable,
     BrunellyTableModel,
     TableColumn,
+    TableDataRole,
 )
 from deskclock.ui.brunelly.forms import (
     BrunellyTextInput,
@@ -71,6 +72,7 @@ __all__ = [
     "BrunellyTable",
     "BrunellyTableModel",
     "TableColumn",
+    "TableDataRole",
     # Forms
     "BrunellyTextInput",
     "BrunellySelect",

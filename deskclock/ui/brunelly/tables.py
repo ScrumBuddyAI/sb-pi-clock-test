@@ -22,6 +22,7 @@ from PySide6.QtCore import (
     QPersistentModelIndex,
     QSortFilterProxyModel,
 )
+from PySide6.QtGui import QBrush, QColor, QPen, QFont, QPainter
 from PySide6.QtWidgets import (
     QTableView,
     QHeaderView,
@@ -29,14 +30,26 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QAbstractItemView,
+    QStyle,
 )
 
 from deskclock.ui.brunelly.theme import (
+    BrunellyTheme,
     ColorPalette,
     Spacing,
     BorderRadius,
     TypographyScale,
 )
+
+
+# Custom data roles for chip rendering
+class TableDataRole:
+    """Custom data roles for table cells."""
+
+    # Role for chip type: "role", "status", or None for regular text
+    ChipTypeRole = Qt.ItemDataRole.UserRole + 1
+    # Role for the raw value (e.g., "admin", "active") for chip coloring
+    ChipValueRole = Qt.ItemDataRole.UserRole + 2
 
 # Type alias for Qt model index types
 ModelIndex = Union[QModelIndex, QPersistentModelIndex]
@@ -221,7 +234,8 @@ class BrunellyTableDelegate(QStyledItemDelegate):
     """Custom delegate for Brunelly table cell rendering.
 
     Provides consistent styling for table cells including padding,
-    typography, and hover states.
+    typography, and hover states. Supports rendering chips for
+    role and status columns.
     """
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -238,9 +252,115 @@ class BrunellyTableDelegate(QStyledItemDelegate):
         option: QStyleOptionViewItem,
         index: ModelIndex,
     ) -> None:
-        """Paint a table cell."""
-        # Use default painting with our stylesheet handling the rest
-        super().paint(painter, option, index)
+        """Paint a table cell.
+
+        Renders chips for role/status columns, regular text otherwise.
+        """
+        # Check if this cell should render as a chip
+        chip_type = index.data(TableDataRole.ChipTypeRole)
+
+        if chip_type in ("role", "status"):
+            self._paint_chip(painter, option, index, chip_type)
+        else:
+            super().paint(painter, option, index)
+
+    def _paint_chip(
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: ModelIndex,
+        chip_type: str,
+    ) -> None:
+        """Paint a chip in the cell.
+
+        Args:
+            painter: QPainter to use.
+            option: Style options.
+            index: Model index.
+            chip_type: Type of chip ("role" or "status").
+        """
+        # Draw background for selection/hover states
+        # Note: state and rect are inherited from QStyleOption but not in PySide6 stubs
+        if option.state & QStyle.StateFlag.State_Selected:  # type: ignore[attr-defined]
+            painter.fillRect(option.rect, QColor(ColorPalette.PRIMARY_50))  # type: ignore[attr-defined]
+        elif option.state & QStyle.StateFlag.State_MouseOver:  # type: ignore[attr-defined]
+            painter.fillRect(option.rect, QColor(ColorPalette.NEUTRAL_50))  # type: ignore[attr-defined]
+
+        # Get chip value and display text
+        chip_value = index.data(TableDataRole.ChipValueRole)
+        display_text = index.data(Qt.ItemDataRole.DisplayRole)
+
+        if not chip_value or not display_text:
+            return
+
+        # Get colors based on chip type
+        if chip_type == "role":
+            bg_color, text_color, border_color = BrunellyTheme.get_role_colors(chip_value)
+        else:
+            bg_color, text_color, border_color = BrunellyTheme.get_status_colors(chip_value)
+
+        # Calculate chip dimensions
+        font = QFont()
+        font.setPixelSize(TypographyScale.CHIP.font_size)
+        font.setWeight(QFont.Weight.Medium)
+        painter.setFont(font)
+
+        text_width = painter.fontMetrics().horizontalAdvance(display_text)
+        chip_padding_h = Spacing.CHIP_PADDING_H
+        chip_padding_v = Spacing.CHIP_PADDING_V
+        chip_width = text_width + (chip_padding_h * 2)
+        chip_height = TypographyScale.CHIP.font_size + (chip_padding_v * 2) + 2
+
+        # Center chip in cell
+        cell_rect = option.rect  # type: ignore[attr-defined]
+        chip_x = cell_rect.x() + Spacing.TABLE_CELL_PADDING_H
+        chip_y = cell_rect.y() + (cell_rect.height() - chip_height) // 2
+
+        # Draw chip background
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        chip_rect = painter.window()
+        chip_rect.setRect(int(chip_x), int(chip_y), int(chip_width), int(chip_height))
+
+        # Background
+        painter.setBrush(QBrush(QColor(bg_color)))
+        painter.setPen(QPen(QColor(border_color), 1))
+        painter.drawRoundedRect(
+            chip_x, chip_y, chip_width, chip_height,
+            BorderRadius.SM, BorderRadius.SM
+        )
+
+        # Text
+        painter.setPen(QColor(text_color))
+        text_x = chip_x + chip_padding_h
+        text_y = chip_y + chip_padding_v + painter.fontMetrics().ascent()
+        painter.drawText(int(text_x), int(text_y), display_text)
+
+        painter.restore()
+
+    def sizeHint(
+        self,
+        option: QStyleOptionViewItem,
+        index: ModelIndex,
+    ) -> Any:
+        """Return the size hint for a cell."""
+        chip_type = index.data(TableDataRole.ChipTypeRole)
+
+        if chip_type in ("role", "status"):
+            # Return size suitable for chip
+            display_text = index.data(Qt.ItemDataRole.DisplayRole) or ""
+            font = QFont()
+            font.setPixelSize(TypographyScale.CHIP.font_size)
+            from PySide6.QtGui import QFontMetrics
+            fm = QFontMetrics(font)
+            text_width = fm.horizontalAdvance(display_text)
+            chip_width = text_width + (Spacing.CHIP_PADDING_H * 2) + (Spacing.TABLE_CELL_PADDING_H * 2)
+            chip_height = TypographyScale.CHIP.font_size + (Spacing.CHIP_PADDING_V * 2) + Spacing.TABLE_CELL_PADDING_V * 2
+            from PySide6.QtCore import QSize
+            return QSize(int(chip_width), int(chip_height))
+
+        return super().sizeHint(option, index)
 
 
 class BrunellyTable(QTableView):
